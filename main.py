@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv,dotenv_values
 from utils.model import system_instruction_text
+import os
 
 load_dotenv()
 
@@ -30,8 +31,8 @@ app.add_middleware(
 )
 
 
-GEMINI_API_KEY = config.get("GEMINI_API_KEY")
-ELEVENLABS_API_KEY = config.get("ELEVENLABS_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 client_elevenlabs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 client_genai = genai.Client(api_key=GEMINI_API_KEY)
