@@ -58,7 +58,7 @@ def generate_response(item: Question):
 
 @app.get("/generate-audio")
 def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(..., min_length=1)):
-    print(voice_id)
+    print(f"--- Intentando generar audio para Voice ID: '{voice_id}' ---")
     try:
         audio_stream = client_elevenlabs.text_to_speech.stream(
             text=text,
@@ -66,9 +66,35 @@ def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(.
             output_format="mp3_44100_128",
             model_id="eleven_multilingual_v2",
         )
-      
-        return StreamingResponse(audio_stream, media_type="audio/mpeg")
-    except Exception as e:
-        return {"error": f"ElevenLabs API error: {e}"}
 
-            
+        # --- CÓDIGO DE DEPURACIÓN PARA EL STREAM ---
+        print("--- Stream recibido de ElevenLabs. Verificando contenido... ---")
+        
+        # Consumimos el stream una vez para inspeccionar los datos
+        chunks = list(audio_stream)
+        
+        if not chunks:
+            # Caso 1: El stream está completamente vacío
+            print("!!! ALERTA: El stream de ElevenLabs llegó VACÍO. No hay datos de audio. !!!")
+            return {"error": "El stream de audio de ElevenLabs llegó vacío."}
+        
+        # Caso 2: Verificamos si el inicio del stream parece un error JSON en lugar de audio
+        first_chunk_sample = chunks[0][:100] # Tomamos los primeros 100 bytes del primer chunk
+        print(f"--- Stream recibido con {len(chunks)} chunks. Muestra del primer chunk: {first_chunk_sample} ---")
+
+        if b'{"detail":' in first_chunk_sample:
+            print(f"!!! ERROR: El stream parece contener un error JSON: {b''.join(chunks).decode()} !!!")
+            return {"error": "ElevenLabs devolvió un error en el stream.", "details": b"".join(chunks).decode()}
+        
+        # Si todo parece correcto, necesitamos recrear el generador para enviarlo
+        def stream_generator():
+            for chunk in chunks:
+                yield chunk
+
+        print("--- Contenido del stream parece válido. Enviando al cliente... ---")
+        return StreamingResponse(stream_generator(), media_type="audio/mpeg")
+        # --- FIN DEL CÓDIGO DE DEPURACIÓN ---
+
+    except Exception as e:
+        print(f"!!! EXCEPCIÓN GENERAL CAPTURADA: {e} !!!")
+        return {"error": f"ElevenLabs API error: {e}"}
