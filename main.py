@@ -108,7 +108,7 @@ def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(.
 
         try:
             # Instancia el cliente de Text-to-Speech
-            client_texttospeech = texttospeech.TextToSpeechClient(client_genai)
+            client_texttospeech = texttospeech.TextToSpeechClient()
 
             synthesis_input = texttospeech.SynthesisInput(text=text)
 
