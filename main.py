@@ -96,5 +96,24 @@ def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(.
         # --- FIN DEL CÓDIGO DE DEPURACIÓN ---
 
     except Exception as e:
-        print(f"!!! EXCEPCIÓN GENERAL CAPTURADA: {e} !!!")
-        return {"error": f"ElevenLabs API error: {e}"}
+        print(f"!!! ElevenLabs API error: {e}. Intentando con Gemini Text-to-Speech... !!!")
+
+        gemini_voices = {
+            "ByVRQtaK1WDOvTmP1PKO": "Charon",
+            "9rvdnhrYoXoUt4igKpBw": "Kore"
+        }
+
+        gemini_voice_name = gemini_voices.get(voice_id, "Charon") 
+
+        try:
+            print(f"--- Generando audio con Gemini usando la voz: '{gemini_voice_name}' ---")
+            audio_response = client_genai.generate_text_to_speech(
+                text=text,
+                config=types.TextToSpeechConfig(
+                    voice=types.Voice(name=gemini_voice_name)
+                ),
+            )
+            return StreamingResponse(audio_response.audio_content, media_type="audio/mpeg")
+        except Exception as gemini_e:
+            print(f"!!! Fallo al generar audio con Gemini: {gemini_e} !!!")
+            return {"error": f"ElevenLabs API error: {e}. Fallback to Gemini failed: {gemini_e}"}
