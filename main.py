@@ -8,6 +8,7 @@ from google.genai import types
 from dotenv import load_dotenv,dotenv_values
 from utils.model import system_instruction_text
 import os
+from google.cloud import texttospeech
 
 load_dotenv()
 
@@ -106,14 +107,33 @@ def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(.
         gemini_voice_name = gemini_voices.get(voice_id, "Charon") 
 
         try:
-            print(f"--- Generando audio con Gemini usando la voz: '{gemini_voice_name}' ---")
-            audio_response = client_genai.generate_text_to_speech(
-                text=text,
-                config=types.TextToSpeechConfig(
-                    voice=types.Voice(name=gemini_voice_name)
-                ),
+            # Instancia el cliente de Text-to-Speech
+            client_texttospeech = texttospeech.TextToSpeechClient(client_genai)
+
+            synthesis_input = texttospeech.SynthesisInput(text=text)
+
+            voice = texttospeech.VoiceSelectionParams(
+                language_code="es-ES",
+                name=gemini_voice_name,
+                ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
             )
-            return StreamingResponse(audio_response.audio_content, media_type="audio/mpeg")
+
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=1.1,
+                pitch=-1.5
+            )
+
+            audio_response = client_texttospeech.synthesize_speech(
+                request={"input": synthesis_input, "voice": voice, "audio_config": audio_config}
+            )
+
+            # Envuelve el contenido de audio en un generador para el StreamingResponse
+            def gemini_audio_stream_generator():
+                yield audio_response.audio_content
+
+            print("--- Audio generado con Gemini con éxito. Enviando al cliente... ---")
+            return StreamingResponse(gemini_audio_stream_generator(), media_type="audio/mpeg")
         except Exception as gemini_e:
             print(f"!!! Fallo al generar audio con Gemini: {gemini_e} !!!")
             return {"error": f"ElevenLabs API error: {e}. Fallback to Gemini failed: {gemini_e}"}
