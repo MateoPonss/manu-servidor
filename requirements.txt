@@ -5,3 +5,4 @@ elevenlabs
 python-dotenv
 uvicorn
 requests
+google-cloud-texttospeech
