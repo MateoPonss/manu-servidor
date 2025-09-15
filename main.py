@@ -1,3 +1,5 @@
+import os
+import requests
 from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,8 +9,6 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv,dotenv_values
 from utils.model import system_instruction_text
-import os
-from google.cloud import texttospeech
 
 load_dotenv()
 
@@ -107,33 +107,35 @@ def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(.
         gemini_voice_name = gemini_voices.get(voice_id, "Charon") 
 
         try:
-            # Instancia el cliente de Text-to-Speech usando el API Key
-            client_texttospeech = texttospeech.TextToSpeechClient(client_options={"api_key": GEMINI_API_KEY})
+            # URL de la API de Text-to-Speech de Google Cloud
+            url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={GEMINI_API_KEY}"
 
-            synthesis_input = texttospeech.SynthesisInput(text=text)
+            # Cuerpo de la solicitud
+            payload = {
+                "input": {"text": text},
+                "voice": {
+                    "languageCode": "es-ES",
+                    "name": gemini_voice_name,
+                    "ssmlGender": "NEUTRAL"
+                },
+                "audioConfig": {
+                    "audioEncoding": "MP3",
+                    "speakingRate": 1.1,
+                    "pitch": -1.5
+                }
+            }
 
-            voice = texttospeech.VoiceSelectionParams(
-                language_code="es-ES",
-                name=gemini_voice_name,
-                ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
-            )
-
-            audio_config = texttospeech.AudioConfig(
-                audio_encoding=texttospeech.AudioEncoding.MP3,
-                speaking_rate=1.1,
-                pitch=-1.5
-            )
-
-            audio_response = client_texttospeech.synthesize_speech(
-                request={"input": synthesis_input, "voice": voice, "audio_config": audio_config}
-            )
+            # Realiza la solicitud POST
+            response = requests.post(url, json=payload, stream=True)
+            response.raise_for_status()  # Lanza una excepción si la solicitud falla
 
             # Envuelve el contenido de audio en un generador para el StreamingResponse
             def gemini_audio_stream_generator():
-                yield audio_response.audio_content
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        yield chunk
 
             print("--- Audio generado con Gemini con éxito. Enviando al cliente... ---")
             return StreamingResponse(gemini_audio_stream_generator(), media_type="audio/mpeg")
         except Exception as gemini_e:
             print(f"!!! Fallo al generar audio con Gemini: {gemini_e} !!!")
-            return {"error": f"ElevenLabs API error: {e}. Fallback to Gemini failed: {gemini_e}"}
