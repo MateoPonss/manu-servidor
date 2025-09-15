@@ -107,8 +107,8 @@ def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(.
         gemini_voice_name = gemini_voices.get(voice_id, "Charon") 
 
         try:
-            # Instancia el cliente de Text-to-Speech
-            client_texttospeech = texttospeech.TextToSpeechClient()
+            # Instancia el cliente de Text-to-Speech usando el API Key
+            client_texttospeech = texttospeech.TextToSpeechClient(client_options={"api_key": GEMINI_API_KEY})
 
             synthesis_input = texttospeech.SynthesisInput(text=text)
 
