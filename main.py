@@ -1,5 +1,3 @@
-import os
-import requests
 from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +7,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv,dotenv_values
 from utils.model import system_instruction_text
+import os
 
 load_dotenv()
 
@@ -97,45 +96,5 @@ def generate_audio(text: str = Query(..., min_length=1), voice_id: str = Query(.
         # --- FIN DEL CÓDIGO DE DEPURACIÓN ---
 
     except Exception as e:
-        print(f"!!! ElevenLabs API error: {e}. Intentando con Gemini Text-to-Speech... !!!")
-
-        gemini_voices = {
-            "ByVRQtaK1WDOvTmP1PKO": "Charon",
-            "9rvdnhrYoXoUt4igKpBw": "Kore"
-        }
-
-        gemini_voice_name = gemini_voices.get(voice_id, "Charon") 
-
-        try:
-            # URL de la API de Text-to-Speech de Google Cloud
-            url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={GEMINI_API_KEY}"
-
-            # Cuerpo de la solicitud
-            payload = {
-                "input": {"text": text},
-                "voice": {
-                    "languageCode": "es-ES",
-                    "name": gemini_voice_name,
-                    "ssmlGender": "NEUTRAL"
-                },
-                "audioConfig": {
-                    "audioEncoding": "MP3",
-                    "speakingRate": 1.1,
-                    "pitch": -1.5
-                }
-            }
-
-            # Realiza la solicitud POST
-            response = requests.post(url, json=payload, stream=True)
-            response.raise_for_status()  # Lanza una excepción si la solicitud falla
-
-            # Envuelve el contenido de audio en un generador para el StreamingResponse
-            def gemini_audio_stream_generator():
-                for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
-                        yield chunk
-
-            print("--- Audio generado con Gemini con éxito. Enviando al cliente... ---")
-            return StreamingResponse(gemini_audio_stream_generator(), media_type="audio/mpeg")
-        except Exception as gemini_e:
-            print(f"!!! Fallo al generar audio con Gemini: {gemini_e} !!!")
+        print(f"!!! EXCEPCIÓN GENERAL CAPTURADA: {e} !!!")
+        return {"error": f"ElevenLabs API error: {e}"}
